@@ -1,5 +1,6 @@
 from sqlalchemy import Column, String, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 import uuid
 from .base import Base
 
@@ -14,3 +15,6 @@ class User(Base):
     status = Column(String, default='active')
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True))
+
+    # Relationship with Project
+    projects = relationship("Project", back_populates="owner")
