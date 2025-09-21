@@ -1,0 +1,18 @@
+[project]
+name = "loggy-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "bcrypt>=4.3.0",
+    "fastapi>=0.116.2",
+    "psycopg2>=2.9.10",
+    "pydantic-settings>=2.10.1",
+    "pytest>=8.4.2",
+    "python-dotenv>=1.1.1",
+    "python-jose[cryptography]>=3.5.0",
+    "python-multipart>=0.0.20",
+    "sqlalchemy>=2.0.43",
+    "uvicorn>=0.36.0",
+]
