@@ -9,6 +9,8 @@ from src.core.project import get_user_project
 from src.models.base import get_db
 from sqlalchemy.orm import Session
 from src.models.project import Project
+from src.core.api_key import create_api_key, get_project_api_key, deactivate_api_key
+from typing import Optional
 
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 

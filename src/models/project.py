@@ -15,5 +15,7 @@ class Project(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # Relationship with User
+    # Relationships
     owner = relationship("User", back_populates="projects")
+    logs = relationship("Log", back_populates="project", cascade="all, delete-orphan")
+    api_key = relationship("APIKey", back_populates="project", uselist=False)
