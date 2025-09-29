@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
 from src.core.auth import get_current_user
+from src.core.project import check_project_ownership
+from src.core.api_key import get_api_key_by_key
 from src.models.user import User
 from src.models.log import Log
 from src.core.log import (
@@ -20,6 +23,7 @@ from src.models.base import get_db
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/projects", tags=["logs"])
+api_key_scheme = APIKeyHeader(name="X-API-Key")
 
 
 class LogCreate(BaseModel):
@@ -60,14 +64,27 @@ class LogUpdate(BaseModel):
     tags: Optional[List[str]] = None
 
 
+async def get_api_key_dep(api_key: str = Depends(api_key_scheme), db: Session = Depends(get_db)):
+    """Authenticate API key and return validation."""
+    validated_key = get_api_key_by_key(api_key, db)
+    if not validated_key:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+    return validated_key
+
+
 @router.post("/{project_id}/logs", response_model=LogResponse, status_code=status.HTTP_201_CREATED)
 async def create_log_route(
     project_id: str,
     log_data: LogCreate,
-    current_user: User = Depends(get_current_user),
+    api_key: str = Depends(get_api_key_dep),
     db: Session = Depends(get_db),
 ):
-    result = create_log(project_id, log_data.dict(), db, current_user)
+    # Vérifier que la clé API a accès au projet
+    validated_key = get_api_key_by_key(api_key, db)
+    if not validated_key or str(validated_key.project_id) != project_id:
+        raise HTTPException(status_code=403, detail="API Key not authorized for this project")
+
+    result = create_log(project_id, log_data.dict(), db, None)
     if result.is_err():
         raise result.unwrap()
     return LogResponse.from_orm(result.unwrap())

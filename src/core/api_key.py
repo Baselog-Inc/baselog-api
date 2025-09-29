@@ -1,83 +1,62 @@
-from sqlalchemy.orm import Session
-from src.models.api_key import APIKey
-from src.utils.api_key import generate_api_key, hash_api_key, create_masked_key, verify_api_key, is_api_key_valid
-from src.models.base import get_db
+from typing import Optional
 from datetime import datetime
-from typing import Optional, List
+from src.models.base import get_db
+from src.models.api_key import APIKey
+from src.models.project import Project
+from src.utils.api_key import generate_api_key, hash_key
+from sqlalchemy.orm import Session
 
-def create_api_key(
-    project_id: str,
-    db: Session,
-    description: Optional[str] = None
-) -> Optional[APIKey]:
-    try:
-        full_key, key_hash, masked_key = generate_api_key()
-        api_key = APIKey(
-            project_id=project_id,
-            key_hash=key_hash,
-            masked_key=masked_key,
-            description=description,
-            is_active=True,
-            created_at=datetime.utcnow()
-        )
-        db.add(api_key)
+def create_api_key(project_id: str, db: Session) -> APIKey:
+    """Create and save a new API key for a project."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise ValueError("Project not found")
+
+    existing_key = db.query(APIKey).filter(APIKey.project_id == project_id).first()
+    if existing_key:
+        existing_key.active = False
         db.commit()
-        db.refresh(api_key)
-        return api_key
-    except Exception as e:
-        db.rollback()
-        return None
 
-def get_project_api_key(project_id: str, db: Session) -> Optional[APIKey]:
-    return db.query(APIKey).filter(
-        APIKey.project_id == project_id,
-        APIKey.is_active == True
-    ).first()
+    key = generate_api_key()
+    key_hash = hash_key(key)
 
-def get_api_key_by_key_hash(key_hash: str, db: Session) -> Optional[APIKey]:
-    return db.query(APIKey).filter(
-        APIKey.key_hash == key_hash,
-        APIKey.is_active == True
-    ).first()
+    api_key = APIKey(
+        key_hash=key_hash,
+        project_id=project_id,
+        active=True,
+        created_at=datetime.now()
+    )
 
-def update_api_key_usage(api_key_id: str, db: Session) -> bool:
-    try:
-        api_key = db.query(APIKey).filter(APIKey.id == api_key_id).first()
-        if api_key:
-            api_key.last_used_at = datetime.utcnow()
-            db.commit()
-            return True
-        return False
-    except Exception:
-        db.rollback()
-        return False
+    db.add(api_key)
+    db.commit()
+    db.refresh(api_key)
+
+    return api_key
+
+def get_api_key_by_key(key: str, db: Session) -> Optional[APIKey]:
+    """Get API key by key string for authentication."""
+    key_hash = hash_key(key)
+    return db.query(APIKey).filter(APIKey.key_hash == key_hash, APIKey.active == True).first()
+
+def get_api_key_by_project(project_id: str, db: Session) -> Optional[APIKey]:
+    """Get active API key by project ID."""
+    return db.query(APIKey).filter(APIKey.project_id == project_id, APIKey.active == True).first()
+
+def reset_api_key(project_id: str, db: Session) -> APIKey:
+    """Reset API key for a project (deactivate old, create new)."""
+    return create_api_key(project_id, db)
 
 def deactivate_api_key(project_id: str, db: Session) -> bool:
-    try:
-        api_key = db.query(APIKey).filter(
-            APIKey.project_id == project_id,
-            APIKey.is_active == True
-        ).first()
-        if api_key:
-            api_key.is_active = False
-            db.commit()
-            return True
-        return False
-    except Exception:
-        db.rollback()
+    """Deactivate API key for a project."""
+    api_key = db.query(APIKey).filter(APIKey.project_id == project_id, APIKey.active == True).first()
+    if not api_key:
         return False
 
-def regenerate_api_key(
-    project_id: str,
-    db: Session,
-    description: Optional[str] = None
-) -> Optional[APIKey]:
-    try:
-        deactivate_api_key(project_id, db)
-        return create_api_key(project_id, db, description)
-    except Exception:
-        db.rollback()
-        return None
+    api_key.active = False
+    api_key.updated_at = datetime.now()
+    db.commit()
+    return True
 
-def get_all_active_api_keys(db: Session) -> List[APIKey]:
-    return db.query(APIKey).filter(APIKey.is_active == True).all()
+def get_active_api_keys(project_id: str, db: Session) -> list[APIKey]:
+    """Get all active API keys for a project."""
+    return db.query(APIKey).filter(APIKey.project_id == project_id, APIKey.active == True).all()
