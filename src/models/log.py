@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, func, ForeignKey, Enum, Text
+from sqlalchemy import Column, String, DateTime, func, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -17,7 +17,7 @@ class Log(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
-    level = Column(Enum(LogLevel), nullable=False)
+    level = Column(String(50), nullable=False)
     category = Column(String(255), nullable=True)
     message = Column(Text, nullable=False)
     tags = Column(ARRAY(String), nullable=True)

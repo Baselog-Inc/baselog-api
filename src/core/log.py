@@ -16,14 +16,10 @@ def validate_log_level(level: str) -> bool:
 
 
 def create_log(
-    project_id: str, log_data: dict, db: Session, user: User
+    project_id: str, log_data: dict, db: Session
 ) -> Result[Log, HTTPException]:
     try:
         # Vérifier si le projet existe et appartient à l'utilisateur
-        project_result = check_project_ownership(project_id, str(user.id), db)
-        if project_result.is_err():
-            return Err(project_result.unwrap_err())
-
         # Valider le niveau de log
         if "level" in log_data and not validate_log_level(log_data["level"]):
             return Err(
@@ -36,7 +32,7 @@ def create_log(
         # Créer le log
         new_log = Log(
             project_id=project_id,
-            level=log_data.get("level", "info").lower(),
+            level=log_data.get("level", "info").upper(),
             category=log_data.get("category"),
             message=log_data["message"],
             tags=log_data.get("tags"),
@@ -52,7 +48,7 @@ def create_log(
         return Err(
             HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create log",
+                detail=f"Failed to create log: {e}",
             )
         )
 

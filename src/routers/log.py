@@ -79,12 +79,11 @@ async def create_log_route(
     api_key: str = Depends(get_api_key_dep),
     db: Session = Depends(get_db),
 ):
-    # Vérifier que la clé API a accès au projet
-    validated_key = get_api_key_by_key(api_key, db)
-    if not validated_key or str(validated_key.project_id) != project_id:
+    # The API key is already validated and authorized in get_api_key_dep
+    if not api_key or str(api_key.project_id) != project_id or not api_key.is_active:
         raise HTTPException(status_code=403, detail="API Key not authorized for this project")
 
-    result = create_log(project_id, log_data.dict(), db, None)
+    result = create_log(project_id, log_data.dict(), db)
     if result.is_err():
         raise result.unwrap()
     return LogResponse.from_orm(result.unwrap())

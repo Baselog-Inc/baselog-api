@@ -59,9 +59,9 @@ async def get_api_key(
     return APIKeyResponse(
         id=str(api_key_obj.id),
         project_id=str(api_key_obj.project_id),
-        active=api_key_obj.active,
+        active=api_key_obj.is_active,
         created_at=api_key_obj.created_at,
-        last_used=api_key_obj.last_used
+        last_used=api_key_obj.last_used_at
     )
 
 
@@ -76,13 +76,14 @@ async def generate_api_key_route(
     if ownership_check.is_err():
         raise ownership_check.unwrap_err()
 
-    api_key_obj = create_api_key(project_id, db)
+    api_key_obj, key = create_api_key(project_id, db)
     return APIKeyResponse(
         id=str(api_key_obj.id),
+        key=key,
         project_id=str(api_key_obj.project_id),
-        active=api_key_obj.active,
+        active=api_key_obj.is_active,
         created_at=api_key_obj.created_at,
-        last_used=api_key_obj.last_used
+        last_used=api_key_obj.last_used_at
     )
 
 
@@ -121,8 +122,8 @@ async def get_api_key_status(
 
     return {
         "project_id": project_id,
-        "active": api_key_obj.active,
+        "active": api_key_obj.is_active,
         "created_at": api_key_obj.created_at,
-        "last_used": api_key_obj.last_used,
+        "last_used": api_key_obj.last_used_at,
         "can_reset": True
     }
