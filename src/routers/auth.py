@@ -56,7 +56,7 @@ async def signup(user: UserCreate, db=Depends(get_db)):
 
     result = new_user.unwrap()
 
-    return {"id": result.id, "username": result.display_name, "email": result.email}
+    return {"id": str(result.id), "username": result.display_name, "email": result.email}
 
 
 @router.post("/login", response_model=LoginResponse)
