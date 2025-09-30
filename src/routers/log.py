@@ -9,6 +9,7 @@ from src.core.project import check_project_ownership
 from src.core.api_key import get_api_key_by_key
 from src.models.user import User
 from src.models.log import Log
+from src.models.api_key import APIKey
 from src.core.log import (
     create_log,
     get_logs_by_project,
@@ -64,23 +65,25 @@ class LogUpdate(BaseModel):
     tags: Optional[List[str]] = None
 
 
-async def get_api_key_dep(api_key: str = Depends(api_key_scheme), db: Session = Depends(get_db)):
-    """Authenticate API key and return validation."""
-    validated_key = get_api_key_by_key(api_key, db)
-    if not validated_key:
+async def get_api_key_dep(api_key: str = Depends(api_key_scheme), db: Session = Depends(get_db)) -> APIKey:
+    """Authenticate API key and return API key object."""
+    api_key_obj = get_api_key_by_key(api_key, db)
+    if not api_key_obj:
         raise HTTPException(status_code=403, detail="Invalid API Key")
-    return validated_key
+    if not api_key_obj.is_active:
+        raise HTTPException(status_code=403, detail="API Key is not active")
+    return api_key_obj
 
 
 @router.post("/{project_id}/logs", response_model=LogResponse, status_code=status.HTTP_201_CREATED)
 async def create_log_route(
     project_id: str,
     log_data: LogCreate,
-    api_key: str = Depends(get_api_key_dep),
+    api_key: APIKey = Depends(get_api_key_dep),
     db: Session = Depends(get_db),
 ):
-    # The API key is already validated and authorized in get_api_key_dep
-    if not api_key or str(api_key.project_id) != project_id or not api_key.is_active:
+    # The API key is already validated and has proper project_id
+    if str(api_key.project_id) != project_id:
         raise HTTPException(status_code=403, detail="API Key not authorized for this project")
 
     result = create_log(project_id, log_data.dict(), db)
