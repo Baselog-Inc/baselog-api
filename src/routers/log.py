@@ -92,6 +92,27 @@ async def create_log_route(
     return LogResponse.from_orm(result.unwrap())
 
 
+@router.post("/logs", response_model=LogResponse, status_code=status.HTTP_201_CREATED)
+async def create_log_api_key_route(
+    log_data: LogCreate,
+    api_key: APIKey = Depends(get_api_key_dep),
+    db: Session = Depends(get_db),
+) -> LogResponse:
+    """Create log using API key project ID (SDK endpoint)."""
+    # Extract project_id from validated API key
+    project_id = str(api_key.project_id)
+
+    if not project_id:
+        raise HTTPException(status_code=400, detail="API key not associated with a project")
+
+    # Use existing core logic to create log
+    result = create_log(project_id, log_data.dict(), db)
+    if result.is_err():
+        raise result.unwrap()
+
+    return LogResponse.from_orm(result.unwrap())
+
+
 @router.get("/{project_id}/logs", response_model=List[LogResponse])
 async def get_user_logs_route(
     project_id: str,
