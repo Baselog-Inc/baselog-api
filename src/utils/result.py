@@ -12,6 +12,7 @@ class Result(Protocol[T, E]):
     def unwrap(self) -> T: ...
     def map(self, f: Callable[[T], U]) -> Self: ...
     def bind(self, f: Callable[[T], Self]) -> Self: ...
+    def match(self, on_success: Callable[[T], R], on_error: Callable[[E], R]) -> R: ...
 
 
 class Ok(Result, Generic[T, E]):
@@ -39,6 +40,9 @@ class Ok(Result, Generic[T, E]):
         except Exception as e:
             return Err(e)
 
+    def match(self, on_success: Callable[[T], R], on_error: Callable[[E], R]) -> R:
+        return on_success(self.value)
+
     def __repr__(self):
         return f"Ok({self.value})"
 
@@ -61,6 +65,9 @@ class Err(Result, Generic[T, E]):
 
     def bind(self, f: Callable[[T], Self]) -> Self:
         return self  # propagate error
+
+    def match(self, on_success: Callable[[T], R], on_error: Callable[[E], R]) -> R:
+        return on_error(self.error)
 
     def __repr__(self):
         return f"Err({self.error})"
