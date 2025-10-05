@@ -73,7 +73,7 @@ class Err(Result, Generic[T, E]):
         return f"Err({self.error})"
 
 
-def match(result: Result[T, E], *, on_success: Callable[[T], R], on_error: Callable[[E], R]) -> R:
+def match(*, result: Result[T, E], on_success: Callable[[T], R], on_error: Callable[[E], R]) -> R:
     """
     Functional pattern matching for Result objects.
 
