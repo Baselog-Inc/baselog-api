@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from utils.result import Ok, Err, match
+from utils.result import Ok, Err, match, Result
 
 
 def test_basic_success():
@@ -163,3 +163,78 @@ def test_usage_examples_from_issue():
         on_error=handle_error
     )
     assert result_str == "Error: error message", f"Expected 'Error: error message', got {result_str}"
+
+
+def test_instance_method_match():
+    """Test the new instance method match() on Result objects."""
+    # Basic Usage: Success case
+    result = Ok(42)
+    matched_value = result.match(
+        on_success=lambda x: f"Success: {x}",
+        on_error=lambda e: f"Error: {e}"
+    )
+    assert matched_value == "Success: 42", f"Expected 'Success: 42', got {matched_value}"
+
+    # Basic Usage: Error case
+    result = Err("Something went wrong")
+    matched_value = result.match(
+        on_success=lambda x: f"Success: {x}",
+        on_error=lambda e: f"Error: {e}"
+    )
+    assert matched_value == "Error: Something went wrong", f"Expected 'Error: Something went wrong', got {matched_value}"
+
+    # Advanced Usage: Helper function
+    def handle_result(result: Result[int, str]) -> str:
+        return result.match(
+            on_success=lambda x: f"Got number: {x}",
+            on_error=lambda e: f"Failed: {e}"
+        )
+
+    success_result = handle_result(Ok(100))
+    assert success_result == "Got number: 100", f"Expected 'Got number: 100', got {success_result}"
+
+    error_result = handle_result(Err("Network error"))
+    assert error_result == "Failed: Network error", f"Expected 'Failed: Network error', got {error_result}"
+
+    # With Mapping example
+    def process_data() -> Result[str, Exception]:
+        try:
+            # Some operation that might fail
+            return Ok("data")
+        except Exception as e:
+            return Err(e)
+
+    result = process_data().match(
+        on_success=lambda x: f"processed: {x}",
+        on_error=lambda e: {"error": str(e)}
+    )
+
+    if isinstance(result, dict):
+        assert "error" in result
+    else:
+        assert result == "processed: data", f"Expected 'processed: data' or dict with error, got {result}"
+
+    # Test that method doesn't use * syntax
+    result = Ok(42)
+    matched_value = result.match(
+        on_success=lambda x: x * 2,
+        on_error=lambda e: 0
+    )
+    assert matched_value == 84, f"Expected 84, got {matched_value}"
+
+    # Test with different return types
+    result = Ok("hello")
+    matched_str = result.match(
+        on_success=lambda x: x.upper(),
+        on_error=lambda e: "ERROR"
+    )
+    assert matched_str == "HELLO", f"Expected 'HELLO', got {matched_str}"
+    assert isinstance(matched_str, str), f"Expected str, got {type(matched_str)}"
+
+    # Test error handling
+    result = Err("test error")
+    matched_result = result.match(
+        on_success=lambda x: "success",
+        on_error=lambda e: f"ERROR: {e}"
+    )
+    assert matched_result == "ERROR: test error", f"Expected 'ERROR: test error', got {matched_result}"
