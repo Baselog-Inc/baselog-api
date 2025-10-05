@@ -105,7 +105,7 @@ def test_exception_handling_in_callbacks():
             on_success=lambda x: 1 / 0,  # This will raise ZeroDivisionError
             on_error=lambda e: "error"
         )
-        assert False, "Expected ZeroDivisionError to be raised"
+        raise AssertionError("Expected ZeroDivisionError to be raised")
     except ZeroDivisionError:
         pass
 
@@ -117,7 +117,7 @@ def test_exception_handling_in_callbacks():
             on_success=lambda x: "success",
             on_error=lambda e: 1 / 0  # This will raise ZeroDivisionError
         )
-        assert False, "Expected ZeroDivisionError to be raised"
+        raise AssertionError("Expected ZeroDivisionError to be raised")
     except ZeroDivisionError:
         pass
 
