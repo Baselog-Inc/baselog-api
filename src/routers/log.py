@@ -18,13 +18,18 @@ from src.core.log import (
     delete_log,
     get_logs_by_level,
     get_logs_by_category,
-    get_logs_by_tag
+    get_logs_by_tag,
 )
 from src.models.base import get_db
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/projects", tags=["logs"])
 api_key_scheme = APIKeyHeader(name="X-API-Key")
+
+
+def _raise_error(error):
+    """Helper function to re-raise errors in match lambdas."""
+    raise error
 
 
 class LogCreate(BaseModel):
@@ -54,7 +59,7 @@ class LogResponse(BaseModel):
             message=log.message,
             tags=log.tags,
             created_at=log.created_at,
-            updated_at=log.updated_at
+            updated_at=log.updated_at,
         )
 
 
@@ -65,7 +70,9 @@ class LogUpdate(BaseModel):
     tags: Optional[List[str]] = None
 
 
-async def get_api_key_dep(api_key: str = Depends(api_key_scheme), db: Session = Depends(get_db)) -> APIKey:
+async def get_api_key_dep(
+    api_key: str = Depends(api_key_scheme), db: Session = Depends(get_db)
+) -> APIKey:
     """Authenticate API key and return API key object."""
     api_key_obj = get_api_key_by_key(api_key, db)
     if not api_key_obj:
@@ -75,7 +82,11 @@ async def get_api_key_dep(api_key: str = Depends(api_key_scheme), db: Session = 
     return api_key_obj
 
 
-@router.post("/{project_id}/logs", response_model=LogResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{project_id}/logs",
+    response_model=LogResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_log_route(
     project_id: str,
     log_data: LogCreate,
@@ -84,12 +95,13 @@ async def create_log_route(
 ):
     # The API key is already validated and has proper project_id
     if str(api_key.project_id) != project_id:
-        raise HTTPException(status_code=403, detail="API Key not authorized for this project")
+        raise HTTPException(
+            status_code=403, detail="API Key not authorized for this project"
+        )
 
-    result = create_log(project_id, log_data.dict(), db)
-    if result.is_err():
-        raise result.unwrap()
-    return LogResponse.from_orm(result.unwrap())
+    return create_log(project_id, log_data.dict(), db).match(
+        on_success=lambda r: LogResponse.from_orm(r), on_error=lambda e: _raise_error(e)
+    )
 
 
 @router.post("/logs", response_model=LogResponse, status_code=status.HTTP_201_CREATED)
@@ -103,14 +115,14 @@ async def create_log_api_key_route(
     project_id = str(api_key.project_id)
 
     if not project_id:
-        raise HTTPException(status_code=400, detail="API key not associated with a project")
+        raise HTTPException(
+            status_code=400, detail="API key not associated with a project"
+        )
 
     # Use existing core logic to create log
-    result = create_log(project_id, log_data.dict(), db)
-    if result.is_err():
-        raise result.unwrap()
-
-    return LogResponse.from_orm(result.unwrap())
+    return create_log(project_id, log_data.dict(), db).match(
+        on_success=lambda r: LogResponse.from_orm(r), on_error=lambda e: _raise_error(e)
+    )
 
 
 @router.get("/{project_id}/logs", response_model=List[LogResponse])
@@ -119,10 +131,10 @@ async def get_user_logs_route(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    result = get_logs_by_project(project_id, str(current_user.id), db)
-    if result.is_err():
-        raise result.unwrap()
-    return [LogResponse.from_orm(log) for log in result.unwrap()]
+    return get_logs_by_project(project_id, str(current_user.id), db).match(
+        on_success=lambda r: [LogResponse.from_orm(log) for log in r],
+        on_error=lambda e: _raise_error(e),
+    )
 
 
 @router.get("/{project_id}/logs/{log_id}", response_model=LogResponse)
@@ -132,10 +144,9 @@ async def get_log_route(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    result = get_log_by_id(log_id, str(current_user.id), db)
-    if result.is_err():
-        raise result.unwrap()
-    return LogResponse.from_orm(result.unwrap())
+    return get_log_by_id(log_id, str(current_user.id), db).match(
+        on_success=lambda r: LogResponse.from_orm(r), on_error=lambda e: _raise_error(e)
+    )
 
 
 @router.put("/{project_id}/logs/{log_id}", response_model=LogResponse)
@@ -146,10 +157,11 @@ async def update_log_route(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    result = update_log(log_id, log_data.dict(exclude_unset=True), str(current_user.id), db)
-    if result.is_err():
-        raise result.unwrap_err()
-    return LogResponse.from_orm(result.unwrap())
+    return update_log(
+        log_id, log_data.dict(exclude_unset=True), str(current_user.id), db
+    ).match(
+        on_success=lambda r: LogResponse.from_orm(r), on_error=lambda e: _raise_error(e)
+    )
 
 
 @router.delete("/{project_id}/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -159,10 +171,9 @@ async def delete_log_route(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    result = delete_log(log_id, str(current_user.id), db)
-    if result.is_err():
-        raise result.unwrap()
-    return
+    return delete_log(log_id, str(current_user.id), db).match(
+        on_success=lambda _: None, on_error=lambda e: _raise_error(e)
+    )
 
 
 @router.get("/{project_id}/logs/level/{level}", response_model=List[LogResponse])
@@ -172,10 +183,10 @@ async def get_logs_by_level_route(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    result = get_logs_by_level(project_id, level, str(current_user.id), db)
-    if result.is_err():
-        raise result.unwrap()
-    return [LogResponse.from_orm(log) for log in result.unwrap()]
+    return get_logs_by_level(project_id, level, str(current_user.id), db).match(
+        on_success=lambda r: [LogResponse.from_orm(log) for log in r],
+        on_error=lambda e: _raise_error(e),
+    )
 
 
 @router.get("/{project_id}/logs/category/{category}", response_model=List[LogResponse])
@@ -185,10 +196,10 @@ async def get_logs_by_category_route(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    result = get_logs_by_category(project_id, category, str(current_user.id), db)
-    if result.is_err():
-        raise result.unwrap()
-    return [LogResponse.from_orm(log) for log in result.unwrap()]
+    return get_logs_by_category(project_id, category, str(current_user.id), db).match(
+        on_success=lambda r: [LogResponse.from_orm(log) for log in r],
+        on_error=lambda e: _raise_error(e),
+    )
 
 
 @router.get("/{project_id}/logs/tag/{tag}", response_model=List[LogResponse])
@@ -198,7 +209,7 @@ async def get_logs_by_tag_route(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    result = get_logs_by_tag(project_id, tag, str(current_user.id), db)
-    if result.is_err():
-        raise result.unwrap()
-    return [LogResponse.from_orm(log) for log in result.unwrap()]
+    return get_logs_by_tag(project_id, tag, str(current_user.id), db).match(
+        on_success=lambda r: [LogResponse.from_orm(log) for log in r],
+        on_error=lambda e: _raise_error(e),
+    )
