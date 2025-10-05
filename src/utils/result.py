@@ -58,7 +58,7 @@ class Err(Result, Generic[T, E]):
         return True
 
     def unwrap(self) -> T:
-        return self.error
+        raise Exception("Tried to unwrap an Err")
 
     def map(self, f: Callable[[T], U]) -> Self:
         return self  # propagate error
@@ -85,7 +85,4 @@ def match(result: Result[T, E], *, on_success: Callable[[T], R], on_error: Calla
     Returns:
         The result of calling either on_success or on_error
     """
-    if result.is_ok():
-        return on_success(result.unwrap())
-    else:
-        return on_error(result.unwrap())
+    return result.match(on_success, on_error)
