@@ -18,4 +18,5 @@ class Project(Base):
     # Relationships
     owner = relationship("User", back_populates="projects")
     logs = relationship("Log", back_populates="project", cascade="all, delete-orphan")
+    events = relationship("Event", back_populates="project", cascade="all, delete-orphan")
     api_key = relationship("APIKey", back_populates="project", uselist=False)

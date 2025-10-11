@@ -92,6 +92,7 @@ async def create_log_route(
     return LogResponse.from_orm(result.unwrap())
 
 
+
 @router.post("/logs", response_model=LogResponse, status_code=status.HTTP_201_CREATED)
 async def create_log_api_key_route(
     log_data: LogCreate,
